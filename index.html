@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Generator — Free, in-browser, no signup</title>
+<meta name="description" content="Create a professional invoice in your browser for free. No signup, no backend, no data leaves your device. Print or save as PDF.">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+</head>
+<body>
+<header class="app-header">
+  <div class="header-inner">
+    <h1>Invoice Generator</h1>
+    <p class="tagline">Free, in your browser. No signup, no backend — your data never leaves your device.</p>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ============ EDITOR ============ -->
+  <section class="editor" aria-label="Invoice editor">
+    <h2>Your invoice</h2>
+
+    <fieldset>
+      <legend>Your business</legend>
+      <label>Business name
+        <input type="text" id="bizName" placeholder="e.g. Studio North" autocomplete="organization">
+      </label>
+      <label>Email
+        <input type="email" id="bizEmail" placeholder="hello@studionorth.example">
+      </label>
+      <label>Address
+        <textarea id="bizAddress" rows="2" placeholder="12 High Street, Bristol BS1 4QA, United Kingdom"></textarea>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Bill to (client)</legend>
+      <label>Client name
+        <input type="text" id="clientName" placeholder="e.g. Brightwood Café">
+      </label>
+      <label>Client email
+        <input type="email" id="clientEmail" placeholder="accounts@brightwood.example">
+      </label>
+      <label>Client address
+        <textarea id="clientAddress" rows="2" placeholder="8 Market Square, Bath BA1 5HX, United Kingdom"></textarea>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Invoice details</legend>
+      <div class="row">
+        <label>Invoice no.
+          <input type="text" id="invoiceNumber">
+        </label>
+        <label>Issue date
+          <input type="date" id="issueDate">
+        </label>
+        <label>Due date
+          <input type="date" id="dueDate">
+        </label>
+      </div>
+      <div class="row">
+        <label>Currency
+          <select id="currency">
+            <option value="GBP" selected>GBP — £</option>
+            <option value="USD">USD — $</option>
+            <option value="EUR">EUR — €</option>
+          </select>
+        </label>
+        <label>Tax %
+          <input type="number" id="taxRate" min="0" max="100" step="0.1" value="0">
+        </label>
+        <label>Discount
+          <select id="discountType">
+            <option value="percent" selected>% of subtotal</option>
+            <option value="fixed">Fixed amount</option>
+          </select>
+          <input type="number" id="discountValue" min="0" step="0.01" value="0" aria-label="Discount value">
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Line items</legend>
+      <div class="table-wrap">
+        <table id="itemsTable">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Qty</th>
+              <th>Unit price</th>
+              <th>Amount</th>
+              <th><span class="visually-hidden">Remove</span></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+      <button type="button" id="addItemBtn" class="btn secondary">+ Add line item</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Payment details</legend>
+      <label>Payment link or bank details
+        <textarea id="paymentDetails" rows="2" placeholder="e.g. https://pay.example.com/inv-2026-001 or Sort code 04-06-05 · Account 12345678"></textarea>
+      </label>
+      <p class="hint">If you enter a payment link (starting with http), a QR code for it is shown on the invoice. The QR library loads from the internet; without it, the rest of the invoice still works.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Notes</legend>
+      <label><span class="visually-hidden">Notes</span>
+        <textarea id="notes" rows="3" placeholder="e.g. Thank you for your business. Payment due within 14 days."></textarea>
+      </label>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" id="printBtn" class="btn primary">Download PDF / Print</button>
+      <button type="button" id="sampleBtn" class="btn secondary">Load sample invoice</button>
+      <button type="button" id="clearBtn" class="btn danger">Clear</button>
+    </div>
+    <p class="hint">Your draft saves automatically in this browser (localStorage). Nothing is uploaded anywhere.</p>
+  </section>
+
+  <!-- ============ PREVIEW ============ -->
+  <section class="preview-wrap" aria-label="Invoice preview">
+    <div class="invoice" id="invoicePreview">
+      <div class="inv-head">
+        <div class="inv-brand">
+          <div class="logo-badge" id="logoBadge" aria-hidden="true">—</div>
+          <div>
+            <div class="inv-biz-name" id="pvBizName">Your Business</div>
+            <div class="inv-biz-meta" id="pvBizEmail"></div>
+            <div class="inv-biz-meta" id="pvBizAddress"></div>
+          </div>
+        </div>
+        <div class="inv-title-block">
+          <div class="inv-title">INVOICE</div>
+          <div class="inv-meta"><span>Invoice no.</span> <strong id="pvInvoiceNumber"></strong></div>
+          <div class="inv-meta"><span>Issue date</span> <strong id="pvIssueDate"></strong></div>
+          <div class="inv-meta"><span>Due date</span> <strong id="pvDueDate"></strong></div>
+        </div>
+      </div>
+
+      <div class="inv-billto">
+        <span>Bill to</span>
+        <div class="inv-client-name" id="pvClientName"></div>
+        <div id="pvClientEmail"></div>
+        <div id="pvClientAddress"></div>
+      </div>
+
+      <table class="inv-table">
+        <thead>
+          <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th></tr>
+        </thead>
+        <tbody id="pvItemsBody"></tbody>
+      </table>
+
+      <div class="inv-totals">
+        <div class="totals-row"><span>Subtotal</span><strong id="pvSubtotal"></strong></div>
+        <div class="totals-row" id="pvDiscountRow"><span id="pvDiscountLabel">Discount</span><strong id="pvDiscount"></strong></div>
+        <div class="totals-row"><span>Tax (<span id="pvTaxRate">0</span>%)</span><strong id="pvTax"></strong></div>
+        <div class="totals-row grand"><span>Total due</span><strong id="pvGrandTotal"></strong></div>
+      </div>
+
+      <div class="inv-foot">
+        <div class="inv-notes">
+          <span>Notes</span>
+          <div id="pvNotes"></div>
+        </div>
+        <div class="inv-payment">
+          <span>Payment</span>
+          <div id="pvPaymentDetails"></div>
+          <div id="qrCode" class="qr" aria-label="Payment QR code"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="app-footer">
+  <p>Invoice Generator — free and open source. Your data stays in your browser. Made by <a href="https://github.com/ViraBuilds">ViraBuilds</a>.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
